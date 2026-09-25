@@ -9,5 +9,7 @@
             "email": "56791864+AiKangLin-lab@users.noreply.github.com"
         }
     ],
-    "require": {}
+    "require": {
+        "php": "^8.3"
+    }
 }
