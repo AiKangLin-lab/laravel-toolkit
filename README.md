@@ -98,4 +98,5 @@ composer require valencio/laravel-toolkit:^0.2
 ```bash
 composer install
 composer test
+
 ```
