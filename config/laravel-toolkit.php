@@ -46,4 +46,24 @@ return [
             ],
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | CRUD 查询 / 写入限额
+    |--------------------------------------------------------------------------
+    |
+    | 仅放默认 page size、上限与 filter/sort/batch 限额，不放业务模型或字段白名单。
+    | 配置类型错误应在构造 QueryLimits 时失败，不能静默变成无上限。
+    |
+    */
+    'crud' => [
+        'default_page_size' => 20,
+        'max_page_size' => 100,
+        'default_options_limit' => 20,
+        'max_options_limit' => 100,
+        'max_batch_ids' => 100,
+        'max_sorts' => 3,
+        'max_filters' => 20,
+        'max_in_values' => 100,
+    ],
 ];

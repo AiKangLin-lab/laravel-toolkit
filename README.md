@@ -82,6 +82,25 @@ $response = $client->fetchItemsOrFail();
 - 不可回退的响应流不读正文；可读流读完后恢复游标
 - 一个第三方一个 channel，不要共用一个大文件
 
+## CRUD（阶段 A–D 首版）
+
+按项目 `docs/crud-development-spec.md`：
+
+- **A**：`Query\*`（Filter / Sort / Schema / Input / Applier / ReadView / Limits）
+- **B**：读取 `paginate` / `find` / `options`
+- **C**：写入 `create` / `update` / `delete`（事务、钩子、字段白名单、行锁）
+- **D**：`deleteMany`（deleteAny + 逐条授权/钩子，全成或全回滚）
+
+```php
+$record = $crud->create($definition, $request->validated(), new CrudContext(actor: $request->user()));
+$crud->update($definition, $id, $request->validated(), $context);
+$crud->delete($definition, $id, $context);
+$n = $crud->deleteMany($definition, $ids, $context);
+```
+
+项目侧需提供：Definition、Policy（含 `create` / `update` / `delete` / `deleteAny`）、FormRequest、Resource。  
+包测试需本机 MySQL；可用 `TOOLKIT_DB_*` 覆盖连接。
+
 ## 要求
 
 - PHP `^8.4`

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Valencio\LaravelToolkit\Providers;
 
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Log\LogManager;
 use Illuminate\Support\ServiceProvider;
+use Valencio\LaravelToolkit\Crud\CrudService;
+use Valencio\LaravelToolkit\Crud\Query\QueryApplier;
 use Valencio\LaravelToolkit\Integration\Logging\IntegrationLogger;
 use Valencio\LaravelToolkit\Integration\Logging\LogSanitizer;
 
@@ -41,6 +44,15 @@ final class LaravelToolkitServiceProvider extends ServiceProvider
                         : $logManager->driver();
                 },
                 sanitizer: $app->make(LogSanitizer::class),
+            );
+        });
+
+        $this->app->singleton(QueryApplier::class);
+
+        $this->app->singleton(CrudService::class, function ($app): CrudService {
+            return new CrudService(
+                gate: $app->make(Gate::class),
+                applier: $app->make(QueryApplier::class),
             );
         });
     }
