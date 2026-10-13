@@ -131,7 +131,10 @@ final class QueryApplier
         }
 
         $escaped = $this->escapeLike((string) $value);
-        $query->where($column, 'like', $prefix.$escaped.$suffix);
+        $pattern = $prefix.$escaped.$suffix;
+        // 显式 ESCAPE，避免 SQLite 等驱动不认默认反斜杠转义
+        $wrapped = $query->getGrammar()->wrap($column);
+        $query->whereRaw("{$wrapped} LIKE ? ESCAPE ?", [$pattern, '\\']);
     }
 
     /**

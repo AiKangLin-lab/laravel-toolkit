@@ -8,16 +8,17 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;
 use PDO;
 use PDOException;
-use PHPUnit\Framework\TestCase;
 use Valencio\LaravelToolkit\Tests\Crud\Fixtures\CrudWidget;
 
 /**
- * MySQL 临时表 + Eloquent Capsule（本机无 pdo_sqlite 时的阶段 A 验收库）。
+ * MySQL 专用测试库 + Eloquent Capsule。
  *
- * 连接参数可读环境变量：TOOLKIT_DB_HOST / PORT / DATABASE / USERNAME / PASSWORD。
+ * 必须通过 TOOLKIT_DB_* 指定专用测试库（库名需含 test），禁止回退业务库。
  */
-abstract class CrudDatabaseTestCase extends TestCase
+abstract class CrudDatabaseTestCase extends \PHPUnit\Framework\TestCase
 {
+    private const string TABLE = 'crud_widgets_toolkit_tmp';
+
     private Capsule $capsule;
 
     protected function setUp(): void
@@ -25,16 +26,32 @@ abstract class CrudDatabaseTestCase extends TestCase
         parent::setUp();
 
         if (! extension_loaded('pdo_mysql')) {
-            $this->markTestSkipped('pdo_mysql is required for CRUD QueryApplier tests.');
+            $this->fail('pdo_mysql is required for CRUD database tests.');
         }
 
-        $host = getenv('TOOLKIT_DB_HOST') ?: '127.0.0.1';
-        $port = getenv('TOOLKIT_DB_PORT') ?: '3306';
-        $database = getenv('TOOLKIT_DB_DATABASE') ?: 'code_base';
-        $username = getenv('TOOLKIT_DB_USERNAME') ?: 'root';
-        $password = getenv('TOOLKIT_DB_PASSWORD') !== false
-            ? (string) getenv('TOOLKIT_DB_PASSWORD')
-            : 'rooter';
+        $host = getenv('TOOLKIT_DB_HOST');
+        $port = getenv('TOOLKIT_DB_PORT');
+        $database = getenv('TOOLKIT_DB_DATABASE');
+        $username = getenv('TOOLKIT_DB_USERNAME');
+        $password = getenv('TOOLKIT_DB_PASSWORD');
+
+        if ($host === false || $host === ''
+            || $database === false || $database === ''
+            || $username === false || $username === ''
+        ) {
+            $this->fail(
+                'CRUD database tests require TOOLKIT_DB_HOST, TOOLKIT_DB_DATABASE and TOOLKIT_DB_USERNAME.'
+            );
+        }
+
+        if (! str_contains(strtolower($database), 'test')) {
+            $this->fail(
+                'TOOLKIT_DB_DATABASE must be a dedicated testing database (name should contain "test").'
+            );
+        }
+
+        $port = ($port === false || $port === '') ? '3306' : $port;
+        $password = $password === false ? '' : (string) $password;
 
         try {
             new PDO(
@@ -43,7 +60,7 @@ abstract class CrudDatabaseTestCase extends TestCase
                 $password,
             );
         } catch (PDOException $e) {
-            $this->markTestSkipped('MySQL unavailable for CRUD tests: '.$e->getMessage());
+            $this->fail('MySQL testing database unavailable: '.$e->getMessage());
         }
 
         $this->capsule = new Capsule;
@@ -62,8 +79,8 @@ abstract class CrudDatabaseTestCase extends TestCase
         $this->capsule->bootEloquent();
 
         $schema = $this->capsule->schema();
-        $schema->dropIfExists('crud_widgets');
-        $schema->create('crud_widgets', static function (Blueprint $table): void {
+        $schema->dropIfExists(self::TABLE);
+        $schema->create(self::TABLE, static function (Blueprint $table): void {
             $table->increments('id');
             $table->unsignedInteger('owner_id');
             $table->string('name');
@@ -76,7 +93,7 @@ abstract class CrudDatabaseTestCase extends TestCase
     protected function tearDown(): void
     {
         if (isset($this->capsule)) {
-            $this->capsule->schema()->dropIfExists('crud_widgets');
+            $this->capsule->schema()->dropIfExists(self::TABLE);
         }
 
         parent::tearDown();

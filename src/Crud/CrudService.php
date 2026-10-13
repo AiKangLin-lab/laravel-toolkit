@@ -284,11 +284,9 @@ final class CrudService
             ]);
         }
 
-        if (count($ids) !== count(array_unique($ids, SORT_REGULAR))) {
-            CrudValidation::throw([
-                'ids' => ['Duplicate ids are not allowed.'],
-            ]);
-        }
+        /** @var Model $keyProbe */
+        $keyProbe = new $modelClass;
+        $ids = $this->normalizeBatchIds($ids, $keyProbe);
 
         $this->authorize($context, 'deleteAny', $modelClass);
 
@@ -359,7 +357,7 @@ final class CrudService
         CrudOperation $operation,
         CrudContext $context,
     ): Builder {
-        $modelClass = $definition->modelClass();
+        $modelClass = $this->assertModelClass($definition);
         $query = $definition->scope($operation, $context);
         $model = $query->getModel();
 
@@ -369,7 +367,29 @@ final class CrudService
             );
         }
 
-        return $query;
+        // scope 与 modelClass 必须同一连接，否则事务包不住真实写入
+        $expectedConnection = (new $modelClass)->getConnection()->getName();
+        $actualConnection = $model->getConnection()->getName();
+        if ($expectedConnection !== $actualConnection) {
+            throw new InvalidCrudDefinition(
+                $definition::class.'::scope() connection ['.$actualConnection
+                .'] must match model connection ['.$expectedConnection.'].'
+            );
+        }
+
+        // 将 scope 条件整体 nested，避免顶层 OR 与后续 whereKey/筛选错误组合
+        $base = $query->toBase();
+        if (($base->wheres ?? []) === []) {
+            return $query;
+        }
+
+        $outer = $model->newQuery();
+        $outer->getQuery()->from = $base->from;
+        $outer->where(function (Builder $group) use ($base): void {
+            $group->getQuery()->addNestedWhereQuery($base, 'and');
+        });
+
+        return $outer;
     }
 
     /**
@@ -514,5 +534,70 @@ final class CrudService
     private function authorize(CrudContext $context, string $ability, Model|string $abilityArguments): void
     {
         $this->gate->forUser($context->actor)->authorize($ability, $abilityArguments);
+    }
+
+    /**
+     * 按模型主键类型规范化批量 ID，拒绝布尔/浮点/数组及非法整数字符串。
+     *
+     * @param  list<mixed>  $ids
+     * @return list<int|string>
+     */
+    private function normalizeBatchIds(array $ids, Model $model): array
+    {
+        $keyType = $model->getKeyType();
+        $normalized = [];
+
+        foreach ($ids as $index => $id) {
+            if (is_bool($id) || is_array($id) || is_float($id) || $id === null) {
+                CrudValidation::throw([
+                    'ids' => ["ids[{$index}] has an invalid type."],
+                ]);
+            }
+
+            if ($keyType === 'int' || $keyType === 'integer') {
+                if (is_int($id)) {
+                    if ($id < 1) {
+                        CrudValidation::throw([
+                            'ids' => ["ids[{$index}] must be a positive integer."],
+                        ]);
+                    }
+                    $normalized[] = $id;
+
+                    continue;
+                }
+
+                if (is_string($id) && preg_match('/^[1-9]\d*$/', $id) === 1) {
+                    $normalized[] = (int) $id;
+
+                    continue;
+                }
+
+                CrudValidation::throw([
+                    'ids' => ["ids[{$index}] must be a positive integer."],
+                ]);
+            }
+
+            if (! is_string($id) && ! is_int($id)) {
+                CrudValidation::throw([
+                    'ids' => ["ids[{$index}] has an invalid type."],
+                ]);
+            }
+
+            $asString = (string) $id;
+            if ($asString === '') {
+                CrudValidation::throw([
+                    'ids' => ["ids[{$index}] must not be empty."],
+                ]);
+            }
+            $normalized[] = $asString;
+        }
+
+        if (count($normalized) !== count(array_unique($normalized, SORT_REGULAR))) {
+            CrudValidation::throw([
+                'ids' => ['Duplicate ids are not allowed.'],
+            ]);
+        }
+
+        return array_values($normalized);
     }
 }

@@ -75,11 +75,26 @@ final readonly class QueryInput
             ]);
         }
 
+        $page = $this->page ?? 1;
+        $perPage = $this->perPage ?? $limits->defaultPageSize;
+
+        if ($page < 1) {
+            CrudValidation::throw([
+                'page' => ['The page must be a positive integer.'],
+            ]);
+        }
+
+        if ($perPage < 1 || $perPage > $limits->maxPageSize) {
+            CrudValidation::throw([
+                'per_page' => ["The per_page may not be greater than {$limits->maxPageSize}."],
+            ]);
+        }
+
         return new self(
             filters: $this->filters,
             sorts: $this->sorts,
-            page: $this->page ?? 1,
-            perPage: $this->perPage ?? $limits->defaultPageSize,
+            page: $page,
+            perPage: $perPage,
             limit: null,
             pageProvided: true,
             perPageProvided: true,
@@ -100,12 +115,19 @@ final readonly class QueryInput
             ]);
         }
 
+        $limit = $this->limit ?? $limits->defaultOptionsLimit;
+        if ($limit < 1 || $limit > $limits->maxOptionsLimit) {
+            CrudValidation::throw([
+                'limit' => ["The limit may not be greater than {$limits->maxOptionsLimit}."],
+            ]);
+        }
+
         return new self(
             filters: $this->filters,
             sorts: $this->sorts,
             page: null,
             perPage: null,
-            limit: $this->limit ?? $limits->defaultOptionsLimit,
+            limit: $limit,
             pageProvided: false,
             perPageProvided: false,
             limitProvided: true,

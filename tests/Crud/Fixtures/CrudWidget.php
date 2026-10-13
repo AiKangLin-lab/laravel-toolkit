@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class CrudWidget extends Model
 {
-    protected $table = 'crud_widgets';
+    protected $table = 'crud_widgets_toolkit_tmp';
 
     public $timestamps = false;
 

@@ -99,7 +99,15 @@ $n = $crud->deleteMany($definition, $ids, $context);
 ```
 
 项目侧需提供：Definition、Policy（含 `create` / `update` / `delete` / `deleteAny`）、FormRequest、Resource。  
-包测试需本机 MySQL；可用 `TOOLKIT_DB_*` 覆盖连接。
+包测试需专用 MySQL 测试库，**必须**设置环境变量（库名需含 `test`，禁止回退业务库）：
+
+```bash
+TOOLKIT_DB_HOST=127.0.0.1
+TOOLKIT_DB_PORT=3306
+TOOLKIT_DB_DATABASE=code_base_testing
+TOOLKIT_DB_USERNAME=root
+TOOLKIT_DB_PASSWORD=...
+```
 
 ## 要求
 
