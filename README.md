@@ -82,6 +82,31 @@ $response = $client->fetchItemsOrFail();
 - 不可回退的响应流不读正文；可读流读完后恢复游标
 - 一个第三方一个 channel，不要共用一个大文件
 
+## Files
+
+对象存储的技术写入和删除。不生成 URL，不写业务表，不决定权限。
+
+```php
+$stored = $storage->store(
+    file: $file,
+    disk: 'uploads_private',
+    directory: 'attachments',
+    options: ['visibility' => 'private'],
+);
+
+$storage->delete($stored->disk, $stored->path);
+```
+
+- `store` 生成独占相对路径后写入；`storeAt` 写入调用方已经分配的路径
+- 路径拒绝绝对路径、URL、`..` 和客户端原始扩展名；扩展名来自文件头 MIME
+- 底层返回 `false` 或抛出存储异常时抛 `FileStorageException`，并保留 `previous`
+- 删除不存在的对象视为成功
+- 失败默认记一条 `file_storage` 日志；成功日志由 `laravel-toolkit.files.logging.log_success` 控制
+- 日志只记异常类名和通过白名单的 `provider_request_id`，不记文件内容、密钥或签名 URL
+- 日志通道优先级：本次参数、包配置 `FILE_STORAGE_LOG_CHANNEL`、默认通道
+
+云厂商驱动由使用方按需安装，不进入本包的强制依赖。
+
 ## CRUD（阶段 A–D 首版）
 
 按项目 `docs/crud-development-spec.md`：
