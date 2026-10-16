@@ -53,23 +53,50 @@ final readonly class FileKeyGenerator
     ) {}
 
     /**
-     * 生成形如 attachments/2026/10/15/<ulid>.pdf 的相对对象路径。
+     * 生成形如 attachments/2026/10/15/<ulid>.pdf 的独占路径。
+     * 调用方已有展示名时用 namedPath()，按日期目录加文件名。
      *
      * @param  File|UploadedFile  $file  本地可读文件
      * @param  string  $directory  服务端配置的相对目录前缀
+     * @param  string|null  $extension  调用方已确认的落盘后缀；为空时按文件头 MIME 映射
      * @return string 通过对象路径校验的相对路径
      */
-    public function generate(File|UploadedFile $file, string $directory = 'uploads'): string
+    public function generate(File|UploadedFile $file, string $directory = 'uploads', ?string $extension = null): string
     {
         $this->assertDirectory($directory);
         $source = $this->localPath($file);
-        $extension = $this->extensionFromMime($this->mimeType($source));
+        $extension ??= $this->extensionFromMime($this->mimeType($source));
+        $extension = strtolower($extension);
+        if (preg_match('/^[a-z0-9]{1,16}$/', $extension) !== 1) {
+            throw new InvalidArgumentException('Storage extension is invalid.');
+        }
         $now = $this->currentTime();
 
         $path = $directory.'/'
             .$now->format('Y').'/'.$now->format('m').'/'.$now->format('d').'/'
             .Str::lower((string) Str::ulid()).'.'.$extension;
 
+        $this->assertObjectPath($path);
+
+        return $path;
+    }
+
+    /**
+     * 生成形如 attachments/2026-10-16/合同.pdf 的路径。
+     *
+     * @param  string  $directory  服务端配置的相对目录前缀
+     * @param  string  $day  一天一层的目录名，如 2026-10-16
+     * @param  string  $filename  已带安全后缀的文件名，可以包含中文
+     * @return string 通过对象路径校验的相对路径
+     */
+    public function namedPath(string $directory, string $day, string $filename): string
+    {
+        $this->assertDirectory($directory);
+        if (preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]*$/', $day) !== 1) {
+            throw new InvalidArgumentException('Storage day folder is invalid.');
+        }
+
+        $path = $directory.'/'.$day.'/'.$filename;
         $this->assertObjectPath($path);
 
         return $path;
@@ -103,7 +130,7 @@ final readonly class FileKeyGenerator
     {
         $segments = $this->segments($path, 'path');
         $name = array_pop($segments);
-        if (! is_string($name) || preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]*\.[A-Za-z0-9]{1,16}$/', $name) !== 1) {
+        if (! is_string($name) || preg_match('/^[\p{L}\p{N}][\p{L}\p{N} ._()（）-]{0,180}\.[A-Za-z0-9]{1,16}$/u', $name) !== 1) {
             throw new InvalidArgumentException('Storage object path must end with a single safe extension.');
         }
 

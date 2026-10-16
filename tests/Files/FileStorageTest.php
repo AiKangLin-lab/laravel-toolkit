@@ -67,6 +67,13 @@ final class FileStorageTest extends TestCase
         $this->assertStringNotContainsString('evil', $path);
     }
 
+    public function test_named_path_uses_one_day_folder_and_the_given_filename(): void
+    {
+        $path = $this->keys()->namedPath('attachments', '2026-10-16', '合同.pdf');
+
+        $this->assertSame('attachments/2026-10-16/合同.pdf', $path);
+    }
+
     public function test_generate_rejects_unsafe_directories(): void
     {
         $keys = $this->keys();
