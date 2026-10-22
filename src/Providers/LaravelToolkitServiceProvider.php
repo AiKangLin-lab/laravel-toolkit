@@ -15,6 +15,7 @@ use Valencio\LaravelToolkit\Crud\CrudService;
 use Valencio\LaravelToolkit\Crud\Query\QueryApplier;
 use Valencio\LaravelToolkit\Files\FileKeyGenerator;
 use Valencio\LaravelToolkit\Files\FileStorage;
+use Valencio\LaravelToolkit\Export\XlsxExporter;
 use Valencio\LaravelToolkit\Files\Logging\FileStorageLogger;
 use Valencio\LaravelToolkit\Integration\Logging\IntegrationLogger;
 use Valencio\LaravelToolkit\Integration\Logging\LogSanitizer;
@@ -22,7 +23,7 @@ use Valencio\LaravelToolkit\Integration\Logging\LogSanitizer;
 /**
  * Laravel Toolkit 服务提供者。
  *
- * 合并配置，并注册集成 HTTP、文件存储和 CRUD 服务。
+ * 合并配置，并注册集成 HTTP、文件存储、导出和 CRUD 服务。
  */
 final class LaravelToolkitServiceProvider extends ServiceProvider
 {
@@ -94,6 +95,39 @@ final class LaravelToolkitServiceProvider extends ServiceProvider
                 disks: $app->make(FilesystemFactory::class),
                 keys: $app->make(FileKeyGenerator::class),
                 storageLogger: $app->make(FileStorageLogger::class),
+            );
+        });
+
+        $this->app->singleton(XlsxExporter::class, function ($app): XlsxExporter {
+            /** @var LogManager $logManager */
+            $logManager = $app->make(LogManager::class);
+            /** @var array<string, mixed> $export */
+            $export = $app->make('config')->get('laravel-toolkit.export', []);
+            $maxRows = $export['max_rows'] ?? 100_000;
+            $logging = is_array($export['logging'] ?? null) ? $export['logging'] : [];
+            $channel = $logging['channel'] ?? null;
+            $logSuccess = $logging['log_success'] ?? false;
+
+            if (! is_int($maxRows) || $maxRows < 1) {
+                throw new InvalidArgumentException('laravel-toolkit.export.max_rows must be an integer of at least 1.');
+            }
+
+            if ($channel !== null && ! is_string($channel)) {
+                throw new InvalidArgumentException('laravel-toolkit.export.logging.channel must be a string or null.');
+            }
+
+            if (! is_bool($logSuccess)) {
+                throw new InvalidArgumentException('laravel-toolkit.export.logging.log_success must be a boolean.');
+            }
+
+            $logger = is_string($channel) && $channel !== ''
+                ? $logManager->channel($channel)
+                : $logManager->driver();
+
+            return new XlsxExporter(
+                defaultMaxRows: $maxRows,
+                logger: $logger,
+                logSuccess: $logSuccess,
             );
         });
 

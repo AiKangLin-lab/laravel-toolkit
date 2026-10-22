@@ -34,6 +34,9 @@
             ]
         }
     },
+    "suggest": {
+        "ext-xlswriter": "Required for synchronous XLSX export (https://github.com/viest/php-ext-xlswriter)"
+    },
     "scripts": {
         "test": "phpunit"
     },

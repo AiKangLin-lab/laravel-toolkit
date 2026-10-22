@@ -107,6 +107,36 @@ $storage->delete($stored->disk, $stored->path);
 
 云厂商驱动由使用方按需安装，不进入本包的强制依赖。
 
+## Export
+
+同步写入 XLSX。包只负责 Excel 写入、基础样式、列宽、行数限额和失败清理。权限、数据范围、筛选、列映射和下载响应留在项目。
+
+需要安装 [php-ext-xlswriter](https://github.com/viest/php-ext-xlswriter/releases)，不进入本包强制依赖。使用恒定内存模式按行顺序写。
+
+```php
+use Valencio\LaravelToolkit\Export\ExportOptions;
+use Valencio\LaravelToolkit\Export\XlsxExporter;
+
+$workbook = $exporter->write(
+    ['编号', '名称'],
+    $rows,
+    new ExportOptions(
+        directory: storage_path('app/private/exports'),
+        title: '演示记录',
+        columnWidths: ['A:B' => 24],
+    ),
+);
+
+return response()->download($workbook->path, $downloadName.'.xlsx')->deleteFileAfterSend();
+```
+
+- 一次 `write()` 完成，不保留上次表头或数据
+- 存储名随机，调用方填写的名称只作下载名
+- 字符串按文本写入（前导零、`=` 开头的普通文本）
+- 数字和布尔由类型决定；日期时间先格式化成文本
+- 超过 `max_rows`（默认 10 万）抛错并删除半成品，不静默截断
+- 失败记录异常类名；成功日志由 `laravel-toolkit.export.logging.log_success` 控制，只记行数、耗时和文件大小
+
 ## CRUD（阶段 A–D 首版）
 
 按项目 `docs/crud-development-spec.md`：
