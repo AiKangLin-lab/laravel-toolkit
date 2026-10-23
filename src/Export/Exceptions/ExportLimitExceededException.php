@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Valencio\LaravelToolkit\Export\Exceptions;
 
+use Illuminate\Contracts\Debug\ShouldntReport;
+
 /**
  * 导出行数超过写入限额。
  *
  * 超限后不会保留半成品文件，也不会静默截断。
+ * 这是可预期的业务边界，由宿主转成 422，不走框架默认异常上报。
  */
-final class ExportLimitExceededException extends ExportException
+final class ExportLimitExceededException extends ExportException implements ShouldntReport
 {
     /**
      * @param  int  $maxRows  本次允许的最大数据行数

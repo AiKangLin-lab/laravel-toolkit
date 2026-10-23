@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Valencio\LaravelToolkit\Export\Exceptions;
 
-use Illuminate\Contracts\Debug\ShouldntReport;
 use RuntimeException;
 use Throwable;
 
 /**
  * 导出写入失败。
  *
- * 客户端文案由宿主决定。已由导出日志记录时不再交给框架默认报告。
+ * 客户端文案由宿主决定。技术故障交给框架默认报告；可选 logger 只作补充，不能代替上报。
  */
-class ExportException extends RuntimeException implements ShouldntReport
+class ExportException extends RuntimeException
 {
     /**
      * @param  string  $message  技术说明，不是面向用户的文案

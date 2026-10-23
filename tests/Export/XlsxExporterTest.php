@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Valencio\LaravelToolkit\Tests\Export;
 
+use DateTimeImmutable;
+use Illuminate\Contracts\Debug\ShouldntReport;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Valencio\LaravelToolkit\Export\Exceptions\ExportException;
 use Valencio\LaravelToolkit\Export\Exceptions\ExportLimitExceededException;
 use Valencio\LaravelToolkit\Export\ExportOptions;
 use Valencio\LaravelToolkit\Export\XlsxExporter;
@@ -115,6 +118,36 @@ final class XlsxExporterTest extends TestCase
         $this->assertSame([], $files);
         $this->assertSame('error', $logger->records[0]['level']);
         $this->assertSame(ExportLimitExceededException::class, $logger->records[0]['context']['exception_class']);
+    }
+
+    public function test_writes_datetime_as_text_not_insert_date(): void
+    {
+        $workbook = (new XlsxExporter)->write(
+            ['时间'],
+            [[new DateTimeImmutable('2026-10-22 12:00:00')]],
+            new ExportOptions(directory: $this->directory()),
+        );
+
+        $xml = $this->sheetXml($workbook->path);
+        $this->assertStringContainsString('2026-10-22 12:00:00', $xml);
+    }
+
+    public function test_rejects_non_finite_floats(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('finite');
+
+        (new XlsxExporter)->write(
+            ['数值'],
+            [[NAN]],
+            new ExportOptions(directory: $this->directory()),
+        );
+    }
+
+    public function test_limit_exceeded_is_not_reported_but_generic_export_exception_is(): void
+    {
+        $this->assertInstanceOf(ShouldntReport::class, new ExportLimitExceededException(1, 2));
+        $this->assertNotInstanceOf(ShouldntReport::class, new ExportException('boom'));
     }
 
     public function test_rejects_relative_directory(): void

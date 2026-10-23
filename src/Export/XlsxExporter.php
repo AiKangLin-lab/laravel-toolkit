@@ -254,6 +254,11 @@ final readonly class XlsxExporter
         return $range.':'.$range;
     }
 
+    /**
+     * 按类型写入单元格；日期统一写文本，非有限 float 拒绝。
+     *
+     * @throws InvalidArgumentException 浮点非有限值时
+     */
     private function writeCell(Excel $fileObject, int $row, int $column, mixed $value): void
     {
         if ($value === null) {
@@ -268,14 +273,28 @@ final readonly class XlsxExporter
             return;
         }
 
-        if (is_int($value) || is_float($value)) {
+        if (is_int($value)) {
+            $fileObject->insertText($row, $column, $value);
+
+            return;
+        }
+
+        if (is_float($value)) {
+            if (! is_finite($value)) {
+                throw new InvalidArgumentException(sprintf(
+                    'Export cell float must be finite, got %s.',
+                    (string) $value,
+                ));
+            }
+
             $fileObject->insertText($row, $column, $value);
 
             return;
         }
 
         if ($value instanceof DateTimeInterface) {
-            $fileObject->insertDate($row, $column, $value->format('Y-m-d H:i:s'));
+            // insertDate 需要时间戳；统一写成文本，避免格式串被误当时间戳。
+            $fileObject->insertText($row, $column, $value->format('Y-m-d H:i:s'));
 
             return;
         }
